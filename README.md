@@ -13,4 +13,9 @@ This is a personal project:
 - [ ] Add option to veiw current evaluation with bar using imported chess engine while playing live(stockfish)
 - [ ] Add "Play Random Game" Feature with random moves, fast forward option to generate game pgn with random moves ending in a checkmate (for fun)
 - [ ] Add Draw Offer ability, detection of stalemate and 3 move repetition
-
+## Packages
+- chess
+- PySimpleGUI
+- playsound
+- pyperclip
+- webbrowser
