@@ -11,7 +11,7 @@ import webbrowser
 
 ChessBoard = chess.Board()
 
-BLANK = 0               # piece names
+BLANK = 0               # piece values
 PAWNB = 1
 KNIGHTB = 2
 BISHOPB = 3
