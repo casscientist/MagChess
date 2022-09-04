@@ -1,20 +1,3 @@
-"""
-BUGS/features needed:
-1. Trying to play a move while paused will resume
-2. Seperate out menu layout creation from playGame, create skeleton for computer move options
-3. Text on right side of moves gets pushed to side if the left side is a longer move
-4. Time increment gives it to the other player after the move is made
-5. Make timer increment in 1/10 second and display 1/10 second after under 10.0 seconds
-6. Text appearing when resigning and telling player to analyze
-7. Try to make entire interface larger
-8. Add option to play computer with built-in engine and levels
-9. Add txt file that can track games played and save them to a folder with pgn, time/date, etc. that can be searched later 
-10. Add option to veiw eval using imported engine
-11. Crash when untimed and hitting pause or resign
-12. Add "Play Random Game" Feature with random moves, fast forward option to generate pgn with random moves ending in a checkmate
-"""
-
-
 import chess
 import math
 import copy
@@ -25,8 +8,6 @@ import os
 from playsound import playsound
 import pyperclip
 import webbrowser
-
-# sg.main_sdk_help()
 
 ChessBoard = chess.Board()
 
