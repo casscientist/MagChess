@@ -7,7 +7,6 @@ This is a personal project:
 - The intention is to recreate a DGT board myself, and have all-in-one software to play over the board
 - Currently only utilizes manual move selection as board is not complete
 ## Intended Features
-- [ ] Make timer increment in 1/10 second and display 1/10 second after under 10.0 seconds
 - [ ] Make entire interface larger with full screen ability
 - [ ] Add option to play computer with built-in engine and levels
 - [ ] Add txt file that can track games played and save them to a folder with pgn, time/date, names of players, result, etc. that can be searched later 
