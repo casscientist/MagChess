@@ -1,4 +1,4 @@
-# MagChess
+# MagChess ![knight](READMEicon.png)
 This is a personal project:
 - Chess interface for playing similar to online using pysimplegui
 - Designed to work with custom board and magnetic pieces that are tracked through a hall effect sensor array and uploaded to a Teensy, where on/off states are converted into a move that is recieved to python through pyserial, and placed on the GUI
