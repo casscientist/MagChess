@@ -13,6 +13,9 @@ This is a personal project:
 - [ ] Add option to veiw current evaluation with bar using imported chess engine while playing live(stockfish)
 - [ ] Add "Play Random Game" Feature with random moves, fast forward option to generate game pgn with random moves ending in a checkmate (for fun)
 - [ ] Add Draw Offer ability, detection of stalemate and 3 move repetition
+- [ ] Change interface for Pause/Play,Resign, Draw, etc. with popup showing options after game, winner, whether to save game or not, analysis, reset board, etc.
+## Todo
+- Add arduino script for calculating moves
 ## Packages
 - chess
 - PySimpleGUI
