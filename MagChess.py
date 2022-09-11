@@ -200,7 +200,7 @@ def PlayGame():
         [sg.Input('', key = 'input', expand_x = True, background_color = lightSquareColor, text_color = 'black')],
         [sg.Button('Move')]
         ]
-    window = sg.Window('MagChess', layout, icon='knightB.ico', default_button_element_size=(12,1), auto_size_buttons=False, background_color = main_background_color)
+    window = sg.Window('MagChess', layout, icon='knightB.ico', default_button_element_size=(12,1), resizable=True, auto_size_buttons=False, background_color = main_background_color)
     while True:
         event, values = window.read(timeout = 1)
         if event == sg.WIN_CLOSED:
