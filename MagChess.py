@@ -26,7 +26,7 @@ KINGW = 11
 QUEENW = 12
 
 def soundSettings(setting):  #plays muted sound instead of turning off sounds, which is probably the correct way to do it but idk
-    if setting == True:
+    if setting:
         moveSound = 'Sounds\\move.mp3'
         checkSound = 'Sounds\\check.mp3'
         captureSound = 'Sounds\\capture.mp3'
@@ -44,7 +44,7 @@ sounds = True #Tracks if sounds are on or off
 isAutoQueen = True
 isPaused = False
 
-def pieceTheme(theme): 
+def piece_theme(theme): 
     if theme == 'Modern':
         filePath = ['neoPieces\\', 'neo.png'] #folder path and then piece name array
         lightSquareColor, darkSquareColor = '#eeeed2','#769656'
@@ -84,7 +84,7 @@ def pieceTheme(theme):
 
     return(images, lightSquareColor, darkSquareColor, lightHighlightColor, darkHighlightColor)
 
-images, lightSquareColor, darkSquareColor, lightHighlightColor, darkHighlightColor = pieceTheme('Modern') #Default theme
+images, lightSquareColor, darkSquareColor, lightHighlightColor, darkHighlightColor = piece_theme('Modern') #Default theme
 
 initial_board = [[ROOKB, KNIGHTB,  BISHOPB, QUEENB, KINGB, BISHOPB, KNIGHTB, ROOKB ],
                 [PAWNB,]*8,
@@ -111,31 +111,37 @@ class Timer():
         self.gameTimeInc = gameTimeInc
         self.startSec, self.startMin = startSec,startMin
         self.time = self.startMin*60 + self.startSec
+
     def start(self):
         self.timestarted = True
         time.sleep(1) #So timer doesn't go down immediately
         while self.time > 0:
             time.sleep(0.1)
             self.time-=0.1
-            if self.paused == True:
+            if self.paused:
                 break 
         if self.time == 0:
             self.stop()
+
     def Threading(self):
         x = threading.Thread(target=self.start)
         x.start()
+
     def pause(self):
         self.paused = True
+
     def resume(self):
         self.paused = False
         self.Threading()
+
     def stop(self):
         self.paused = True
         self.time = 0
+
     def addInc(self):
         self.time+=self.gameTimeInc
 
-def PlayGame():
+def play_game():
     #lets define some global variables so things work don't @ me
     global row, col, old_row, old_col, images, lightSquareColor, darkSquareColor, lightHighlightColor, main_background_color 
     global darkHighlightColor, moveSound, captureSound, checkSound, checkmateSound, gameStart
@@ -145,7 +151,6 @@ def PlayGame():
     gameStart = False
     pgnArray = []
     moveCount = 0
-    curMoveRow = []
 
     settings_layout = [
     'Board Theme', ['Modern', 'Classic', 'Lichess', 'Alice in Wonderland'],
@@ -158,7 +163,7 @@ def PlayGame():
     menu_layout = [
     ['File', ['New Game', 'Play Computer']],
     ['Settings', settings_layout],
-    ['Controls', ['Pause', 'Resign', 'Analyze']]
+    ['Controls', ['Pause', 'Resign']]
     ]
 
     movesColumn = []
@@ -201,13 +206,14 @@ def PlayGame():
         [sg.Input('', key = 'input', expand_x = True, background_color = lightSquareColor, text_color = 'black')],
         [sg.Button('Move')]
         ]
-    window = sg.Window('MagChess', layout, icon='knightB.ico', default_button_element_size=(12,1), resizable=True, auto_size_buttons=False, background_color = main_background_color)
+    window = sg.Window('MagChess', layout, icon='knightB.ico', default_button_element_size=(12,1), resizable=True, auto_size_buttons=False, background_color = main_background_color).Finalize()
+    window.Maximize()
     while True:
         event, values = window.read(timeout = 1)
         if event == sg.WIN_CLOSED:
             break
-        if event == 'New Game':
-            newGameInputs = newGame() #new game popup
+        if event == 'New Game' and not gameStart:
+            newGameInputs = new_game() #new game popup
             ChessBoard.reset() #Reset everything
             board = copy.deepcopy(initial_board)
             old_row, old_col, row, col = 0,0,0,0
@@ -224,8 +230,9 @@ def PlayGame():
             window.refresh()
             window['movesColumn'].contents_changed()
             if newGameInputs != None:
-                window['Player_1_Name'].update(newGameInputs[0]) #Updates Player Names
-                window['Player_2_Name'].update(newGameInputs[1])
+                Player_1_Name, Player_2_Name = newGameInputs[0], newGameInputs[1]
+                window['Player_1_Name'].update(Player_1_Name) #Updates Player Names
+                window['Player_2_Name'].update(Player_2_Name)
                 gameTimeInc = newGameInputs[4]
                 gameStart = newGameInputs[5]
                 if 'Untimed' in (newGameInputs[2], newGameInputs[3]):
@@ -238,9 +245,6 @@ def PlayGame():
                     Player_1_Timer = Timer(newGameInputs[2], newGameInputs[3],gameTimeInc) #Creates timer for each player based on inputs
                     Player_2_Timer = Timer(newGameInputs[2], newGameInputs[3],gameTimeInc)
                     Player_1_Timer.Threading() #Starts Timer's and pauses black immediately
-                    Player_2_Timer.Threading()
-                    Player_2_Timer.pause()
-                    Player_2_Timer.time+=1
         if event == settings_layout[2]: #if sounds selected
             global sounds
             sounds = not sounds
@@ -261,18 +265,13 @@ def PlayGame():
             settings_layout[3] = f'Auto Queen{menuMark}' #updates to turn off/on checkmark
             menu.update(menu_layout)    #updates full menu
         if event in board_themes: 
-            images,lightSquareColor, darkSquareColor, lightHighlightColor, darkHighlightColor = pieceTheme(event)
+            images,lightSquareColor, darkSquareColor, lightHighlightColor, darkHighlightColor = piece_theme(event)
             redraw_board(window, board) #redraws board with new theme from event
-        if event == 'Resign' and gameStart == True:
+        if event == 'Resign' and gameStart:
             gameStart = False
             Player_1_Timer.stop()
             Player_2_Timer.stop()
-        if event == 'Analyze':
-            if gameStart == False:
-                if pgnArray != []: #In case no moves were made
-                    pyperclip.copy(pgn)
-                    webbrowser.open_new_tab('https://lichess.org/analysis') #copy and open analysis link
-        if event == menu_layout[2][1][0] and gameStart == True: #if Paused or Resume button pressed
+        if event == menu_layout[2][1][0] and gameStart: #if Paused or Resume button pressed
             global isPaused
             isPaused = not isPaused
             if isPaused:
@@ -284,8 +283,9 @@ def PlayGame():
                 Player_1_Timer.resume()
                 Player_2_Timer.resume()
             menu.update(menu_layout)
-        if gameStart == True and 'Untimed' not in (newGameInputs[2], newGameInputs[3]):
-            if (moveCount % 2) == 0:
+        if gameStart and 'Untimed' not in (newGameInputs[2], newGameInputs[3]):
+            if (moveCount % 2) == 0: 
+                time.sleep(0.01)
                 if Player_1_Timer.time < 10: #Switch to decimal when under 10s
                     gameTimeSeconds, gameTimeDS = Player_1_Timer.time // 1, (Player_1_Timer.time % 1 * 10)
                     window['Player1Time'].update('00:{:02n}.{:.0f}'.format(gameTimeSeconds, gameTimeDS))
@@ -293,6 +293,7 @@ def PlayGame():
                     gameTimeMinutes, gameTimeSeconds = divmod(int(Player_1_Timer.time), 60)
                     window['Player1Time'].update('{:02d}:{:02d}'.format(gameTimeMinutes, gameTimeSeconds))
             elif (moveCount % 2) != 0:
+                time.sleep(0.01)
                 if Player_2_Timer.time < 10: #Switch to decimal when under 10s
                     gameTimeSeconds, gameTimeDS = Player_2_Timer.time // 1, (Player_2_Timer.time % 1 * 10) #deci-seconds
                     window['Player2Time'].update('00:{:02n}.{:.0f}'.format(gameTimeSeconds, gameTimeDS))
@@ -301,107 +302,123 @@ def PlayGame():
                     window['Player2Time'].update('{:02d}:{:02d}'.format(gameTimeMinutes, gameTimeSeconds))
             if Player_1_Timer.time <= 0:
                 window['Player1Time'].update('00:00')
-                game_over('timeout', 2)
+                game_over('timeout', pgn, Player_2_Name)
             elif Player_2_Timer.time <= 0:
                 window['Player2Time'].update('00:00')
-                game_over('timeout',1)
-        if event == 'Move' and gameStart == True:
+                game_over('timeout', pgn, Player_1_Name)
+        if event == 'Move' and gameStart:
             window['input'].update('')
             arduinoMove = values['input']
-            srtSq = chess.parse_square(arduinoMove[0:2])
-            endSq = chess.parse_square(arduinoMove[2:4])
-            move = chess.Move.from_uci(arduinoMove)
-            row, col = 7 - srtSq // 8, srtSq % 8 #board is flipped so 7 - srtSq
-            piece = board[row][col] 
-            didPromote = [False,None]  #promotion variable
-            if piece == PAWNB and row == 6: #if black pawn promotes
-                    if isAutoQueen:
-                        move = chess.Move.from_uci(f'{move}q')
-                        didPromote = [True,QUEENB]
+            try:
+                srtSq = chess.parse_square(arduinoMove[0:2])
+                endSq = chess.parse_square(arduinoMove[2:4])
+            except ValueError:
+                illegal_move_popup()
+            else:   
+                move = chess.Move.from_uci(arduinoMove)
+                row, col = 7 - srtSq // 8, srtSq % 8 #board is flipped so 7 - srtSq
+                piece = board[row][col] 
+                didPromote = [False,None]  #promotion variable
+                if piece == PAWNB and row == 6: #if black pawn promotes
+                        if isAutoQueen:
+                            move = chess.Move.from_uci(f'{move}q')
+                            didPromote = [True,QUEENB]
+                        else:
+                            promotedPiece = promotion_popup()
+                            move = chess.Move.from_uci(f'{move}{promotedPiece}')
+                            promotedPieceConversion = {'q':QUEENB, 'r':ROOKB, 'b':BISHOPB, 'n':KNIGHTB}
+                            didPromote = [True,promotedPieceConversion[promotedPiece]]
+                if piece == PAWNW and row == 1: #if white pawn promotes
+                        if isAutoQueen:
+                            move = chess.Move.from_uci(f'{move}q')
+                            didPromote = [True,QUEENW]
+                        else:
+                            promotedPiece = promotion_popup()
+                            move = chess.Move.from_uci(f'{move}{promotedPiece}')
+                            promotedPieceConversion = {'q':QUEENW, 'r':ROOKW, 'b':BISHOPW, 'n':KNIGHTW}
+                            didPromote = [True,promotedPieceConversion[promotedPiece]]
+                if move in list(ChessBoard.legal_moves):  #check for move legality
+                    move_san = ChessBoard.san(move) #This is the typical algebraic notation for the move
+                    moveCount += 1
+                    if (moveCount % 2) == 0 and 'Untimed' not in (newGameInputs[2], newGameInputs[3]): #Black made a move 
+                        Player_2_Timer.addInc()
+                        Player_1_Timer.resume() 
+                        Player_2_Timer.pause()
+                    elif (moveCount % 2) != 0 and 'Untimed' not in (newGameInputs[2], newGameInputs[3]): #White made a move
+                        Player_1_Timer.addInc()
+                        Player_2_Timer.resume()
+                        Player_1_Timer.pause()
+                        pgnArray.append(f'{(moveCount // 2) + 1}.') #adds move number
+                    pgnArray.append(move_san) #Adds move to pgn array
+                    pgn = ' '.join(pgnArray) #converts pgn to string for copy/paste
+                    board[row][col] = BLANK
+                    old_row, old_col = row, col  #Now changes new square
+                    row, col = 7 - endSq // 8, endSq % 8
+                    if didPromote[0]: #If a piece promotes, put the promoted piece on the board
+                        board[row][col] = didPromote[1]
+                    else:    
+                        board[row][col] = piece
+                    if ChessBoard.is_castling: #Castling check
+                        if piece == KINGB and move == chess.Move.from_uci('e8g8'): #Black kingside castle
+                            board[row][7] = BLANK
+                            board[row][5] = ROOKB
+                        elif piece == KINGB and move == chess.Move.from_uci('e8c8'): #Black queenside castle
+                            board[row][0] = BLANK
+                            board[row][3] = ROOKB
+                        elif piece == KINGW and move == chess.Move.from_uci('e1c1'): #White queenside castle
+                            board[row][0] = BLANK
+                            board[row][3] = ROOKW
+                        elif piece == KINGW and move == chess.Move.from_uci('e1g1'): #White kingside castle
+                            board[row][7] = BLANK
+                            board[row][5] = ROOKW
+                    if ChessBoard.is_en_passant(move): #Holy Hell!
+                        if piece == PAWNW:
+                            board[row+1][col] = BLANK
+                        elif piece == PAWNB:
+                            board[row-1][col] = BLANK
+                    redraw_board(window, board) #Updates the board
+                    if (moveCount % 2) != 0: #Adds next line if odd numbered moveCount
+                        window.extend_layout(window['movesColumn'], update_move_list(moveCount, move_san))
+                        window.refresh()
+                        window['movesColumn'].contents_changed() #Updates scroll area size to account for new element
+                    elif (moveCount % 2) == 0:
+                        window[f'{math.ceil(moveCount / 2)}-move2'].update(move_san)
+                        window.refresh()
+                        window['movesColumn'].contents_changed() #Updates scroll area size to account for new element
+                    #Updates the move list
+                    if ChessBoard.gives_check(move): 
+                        ChessBoard.push(move) #has to push move first otherwise can't tell if checkmate
+                        if ChessBoard.is_checkmate():
+                            playsound(checkmateSound, block = False)
+                            game_over("Checkmate", pgn, Player_2_Name if ChessBoard.turn else Player_1_Name)
+                        else:
+                            playsound(checkSound, block = False)
+                    elif ChessBoard.is_capture(move):
+                        playsound(captureSound, block = False)
+                        ChessBoard.push(move) #push after move otherwise there are errors 
                     else:
-                        promotedPiece = promotionPopup()
-                        move = chess.Move.from_uci(f'{move}{promotedPiece}')
-                        promotedPieceConversion = {'q':QUEENB, 'r':ROOKB, 'b':BISHOPB, 'n':KNIGHTB}
-                        didPromote = [True,promotedPieceConversion[promotedPiece]]
-            if piece == PAWNW and row == 1: #if white pawn promotes
-                    if isAutoQueen:
-                        move = chess.Move.from_uci(f'{move}q')
-                        didPromote = [True,QUEENW]
-                    else:
-                        promotedPiece = promotionPopup()
-                        move = chess.Move.from_uci(f'{move}{promotedPiece}')
-                        promotedPieceConversion = {'q':QUEENW, 'r':ROOKW, 'b':BISHOPW, 'n':KNIGHTW}
-                        didPromote = [True,promotedPieceConversion[promotedPiece]]
-            if move in list(ChessBoard.legal_moves):  #check for move legality
-                move_san = ChessBoard.san(move) #This is the typical algebraic notation for the move
-                moveCount += 1 
-                if (moveCount % 2) == 0 and 'Untimed' not in (newGameInputs[2], newGameInputs[3]): #White made a move 
-                    Player_1_Timer.addInc() #Adds the increment
-                    Player_1_Timer.resume() 
-                    Player_2_Timer.pause()
-                elif (moveCount % 2) != 0 and 'Untimed' not in (newGameInputs[2], newGameInputs[3]): #Black made a move
-                    Player_2_Timer.addInc() 
-                    Player_2_Timer.resume()
-                    Player_1_Timer.pause()
-                    pgnArray.append(f'{(moveCount // 2) + 1}.') #adds move number
-                pgnArray.append(move_san) #Adds move to pgn array
-                pgn = ' '.join(pgnArray) #converts pgn to string for copy/paste
-                board[row][col] = BLANK
-                old_row, old_col = row, col  #Now changes new square
-                row, col = 7 - endSq // 8, endSq % 8
-                if didPromote[0]: #If a piece promotes, put the promoted piece on the board
-                    board[row][col] = didPromote[1]
-                else:    
-                    board[row][col] = piece
-                if ChessBoard.is_castling: #Castling check
-                    if piece == KINGB and move == chess.Move.from_uci('e8g8'): #Black kingside castle
-                        board[row][7] = BLANK
-                        board[row][5] = ROOKB
-                    elif piece == KINGB and move == chess.Move.from_uci('e8c8'): #Black queenside castle
-                        board[row][0] = BLANK
-                        board[row][3] = ROOKB
-                    elif piece == KINGW and move == chess.Move.from_uci('e1c1'): #White queenside castle
-                        board[row][0] = BLANK
-                        board[row][3] = ROOKW
-                    elif piece == KINGW and move == chess.Move.from_uci('e1g1'): #White kingside castle
-                        board[row][7] = BLANK
-                        board[row][5] = ROOKW
-                if ChessBoard.is_en_passant(move): #Holy Hell!
-                    if piece == PAWNW:
-                        board[row+1][col] = BLANK
-                    elif piece == PAWNB:
-                        board[row-1][col] = BLANK
-                redraw_board(window, board) #Updates the board
-                if (moveCount % 2) != 0: #Adds next line if odd numbered moveCount
-                    window.extend_layout(window['movesColumn'], updateMoveList(moveCount, move_san))
-                    window.refresh()
-                    window['movesColumn'].contents_changed() #Updates scroll area size to account for new element
-                elif (moveCount % 2) == 0:
-                    window[f'{math.ceil(moveCount / 2)}-move2'].update(move_san)
-                    window.refresh()
-                    window['movesColumn'].contents_changed() #Updates scroll area size to account for new element
-                 #Updates the move list
-                if ChessBoard.gives_check(move): 
-                    ChessBoard.push(move) #has to push move first otherwise can't tell if checkmate
-                    if ChessBoard.is_checkmate():
-                        playsound(checkmateSound, block = False)
-                        Player_1_Timer.stop()
-                        Player_2_Timer.stop()
-                    else:
-                        playsound(checkSound, block = False)
-                elif ChessBoard.is_capture(move):
-                    playsound(captureSound, block = False)
-                    ChessBoard.push(move) #push after move otherwise there are errors 
+                        playsound(moveSound, block = False)
+                        ChessBoard.push(move)
                 else:
-                    playsound(moveSound, block = False)
-                    ChessBoard.push(move)
-            else:
-                sg.popup_ok('Illegal Move',text_color='white', no_titlebar = True, background_color = '#5e687e')
+                    illegal_move_popup()
 
-def game_over(condition, win_player = 0):
+def illegal_move_popup():
+    sg.popup_ok('Illegal Move',text_color='white', no_titlebar = True, background_color = '#5e687e')
+
+def game_over(condition, pgn, win_player = 0):
     gameStart = False
     Player_1_Timer.stop()
     Player_2_Timer.stop()
+    if win_player != 0:
+        result = sg.popup(f'{win_player} wins by {condition}', text_color='white', no_titlebar = False, background_color = '#5e687e', custom_text=('Save and Close', 'Analyze'))
+        if result == "Analyze":
+            analyze(pgn)
+        return
+
+def analyze(pgn):
+    if gameStart == False and pgn != '': #In case no moves were made
+        pyperclip.copy(pgn)
+        webbrowser.open_new_tab('https://lichess.org/analysis') #copy and open analysis link
 
 def redraw_board(window, board):
     for i in range(8):
@@ -425,7 +442,7 @@ def redraw_board(window, board):
         else:
             button.Update(button_color = lightHighlightColor)
 
-def newGame():
+def new_game():
     customTime = [[sg.T('Minutes:', background_color = '#5e687e', pad=((0,5),0)), sg.Input(key='timeMin', enable_events = True, pad=((0,5),0), size = (2,1)), 
         sg.T('Seconds:', background_color = '#5e687e', pad=((0,5),0)), sg.Input(key='timeSec', enable_events = True, size = (2,1)), 
         sg.T('Increment:', background_color = '#5e687e', pad=((0,5),0)), sg.Input(key='increment',  enable_events = True, pad=((0,5),0), size = (2,1))]]
@@ -437,58 +454,54 @@ def newGame():
         [sg.Button('Cancel'), sg.Button('Start')]
     ]
     window = sg.Window('NewGame', layout, background_color = '#5e687e', no_titlebar=True, modal=True, finalize = True)
-    isCustom = True
+    time_control_select = False
     while True:
         event, values = window.read()
         if event in (sg.WIN_CLOSED, 'Cancel'):
             break
         if event == 'TimeControl':
+            time_control_select = True
+            window['customTime'].update(visible = False)
+            isCustom = False
             if values['TimeControl'] == 'Untimed':
-                window['customTime'].update(visible = False)
                 gameTimeMinutes = 'Untimed'
                 gameTimeSeconds = 'Untimed'
                 gameTimeInc = 0
-                isCustom = False
             elif values['TimeControl'] == 'Classical(30|15)':
                 gameTimeMinutes = 30
                 gameTimeSeconds = 0
                 gameTimeInc = 15
-                window['customTime'].update(visible = False)
-                isCustom = False
             elif values['TimeControl'] == 'Rapid(10|5)':
                 gameTimeMinutes = 10
                 gameTimeSeconds = 0
                 gameTimeInc = 5
-                window['customTime'].update(visible = False)
-                isCustom = False
             elif values['TimeControl'] == 'Long Blitz(5|5)':
                 gameTimeMinutes = 5
                 gameTimeSeconds = 0
                 gameTimeInc = 5
-                window['customTime'].update(visible = False)
-                isCustom = False
             elif values['TimeControl'] == 'Short Blitz(3|3)':
                 gameTimeMinutes = 3
                 gameTimeSeconds = 0
                 gameTimeInc = 3
-                window['customTime'].update(visible = False)
-                isCustom = False
             elif values['TimeControl'] == 'Custom':
                 window['customTime'].update(visible = True)
                 isCustom = True
         if event == 'Start':
             Player_1_Name = values['name1']
             Player_2_Name = values['name2']
-            if isCustom == True:
+            if Player_1_Name == '' or Player_2_Name == '' or time_control_select is False:
+                sg.Popup('Must fill fields', no_titlebar = True, background_color = '#5e687e')
+                break
+            elif isCustom:
                 gameTimeMinutes = int(values['timeMin']) if values['timeMin'] != '' else 0
                 gameTimeSeconds = int(values['timeSec']) if values['timeSec'] != '' else 0
                 gameTimeInc = int(values['increment']) if values['increment'] != '' else 0
-            if Player_1_Name == '' or Player_2_Name == '' or (isCustom == True and (gameTimeMinutes == 0 and gameTimeSeconds == 0)):
-                sg.Popup('Must fill fields', no_titlebar = True, background_color = '#5e687e')
-            else:
-                window.close()
-                gameStart = True
-                return(Player_1_Name, Player_2_Name, gameTimeMinutes, gameTimeSeconds, gameTimeInc, gameStart)
+                if gameTimeMinutes == 0 and gameTimeSeconds < 10:
+                    sg.Popup('Must Enter Time (at least 10s)', no_titlebar = True, background_color = '#5e687e')
+                    break
+            window.close()
+            gameStart = True
+            return(Player_1_Name, Player_2_Name, gameTimeMinutes, gameTimeSeconds, gameTimeInc, gameStart)
         if event == 'timeMin' and values['timeMin'] and values['timeMin'][-1] not in ('0123456789') or len(values['timeMin']) > 2:
             window['timeMin'].update(values['timeMin'][:-1])
         if event == 'timeSec' and values['timeSec'] and values['timeSec'][-1] not in ('0123456789') or len(values['timeSec']) > 2:
@@ -496,8 +509,8 @@ def newGame():
         if event == 'increment' and values['increment'] and values['increment'][-1] not in ('0123456789') or len(values['increment']) > 2:
             window['increment'].update(values['increment'][:-1])
     window.close()
-    gameStart = True
-def promotionPopup():
+
+def promotion_popup():
     layout = [
         [sg.Button('', key = 'Q', button_color = ('white', '#5e687e'), image_filename = images[QUEENW], size=(10,10)), sg.Button('', key = 'R', button_color = ('white', '#5e687e'),image_filename = images[ROOKW], size=(10,10)), 
         sg.Button('', key = 'B', button_color = ('white', '#5e687e'),image_filename = images[BISHOPW], size=(10,10)), sg.Button('', key = 'N', button_color = ('white', '#5e687e'), image_filename = images[KNIGHTW], size=(10,10))]
@@ -538,7 +551,7 @@ def promotionPopup():
     window.close()
     return promotedPiece
 
-def updateMoveList(moveCount,move_san):
+def update_move_list(moveCount,move_san):
     moveNum = (math.ceil(moveCount / 2)) #Rounds up to nearest integer to display move count e.g move 1/2 = 1
     controls_background_color = '#272522'
     move1 = move_san
@@ -547,4 +560,4 @@ def updateMoveList(moveCount,move_san):
     return [[sg.T(str(moveNum), key= f'{moveNum}-moveNum', pad =((5,10), 0), justification = 'center', font = 'Any 11 bold', background_color= 'gray'), sg.T(move1, key=f'{moveNum}-move1', pad =(0, 0), background_color= controls_background_color), 
     sg.T(move2, pad = ((30,0), 0), key = f'{moveNum}-move2', background_color= controls_background_color)]]
 
-PlayGame() #Play!
+play_game() #Play!
