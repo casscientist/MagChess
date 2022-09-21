@@ -6,8 +6,27 @@ import time
 import threading
 import os
 from playsound import playsound
-import pyperclip
-import webbrowser
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+
+class AppVariables(): #For app wide variables and settings and other setup
+    def __init__(self):
+        self.game_start = False
+        self.game_time_minutes = 0
+        self.game_time_seconds = 0
+        self.game_time_inc = 0
+        self.game_time_untimed = False
+        self.selenium_setup()
+
+    def selenium_setup(self):    
+        self.chrome_options = Options()
+        self.chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
+        self.service = Service('drivers\chromedriver.exe')
+
+app_variables = AppVariables()
 
 ChessBoard = chess.Board()
 
@@ -25,7 +44,9 @@ ROOKW = 10
 KINGW = 11
 QUEENW = 12
 
-def soundSettings(setting):  #plays muted sound instead of turning off sounds, which is probably the correct way to do it but idk
+
+
+def sound_settings(setting):  #plays muted sound instead of turning off sounds, which is probably the correct way to do it but idk
     if setting:
         moveSound = 'Sounds\\move.mp3'
         checkSound = 'Sounds\\check.mp3'
@@ -38,7 +59,7 @@ def soundSettings(setting):  #plays muted sound instead of turning off sounds, w
         checkmateSound = 'Sounds\\mute.mp3'
     return(moveSound, checkSound, captureSound, checkmateSound)
 
-moveSound, checkSound, captureSound, checkmateSound = soundSettings(True) #default sounds are on
+moveSound, checkSound, captureSound, checkmateSound = sound_settings(True) #default sounds are on
 
 sounds = True #Tracks if sounds are on or off
 isAutoQueen = True
@@ -114,7 +135,6 @@ class Timer():
 
     def start(self):
         self.timestarted = True
-        time.sleep(1) #So timer doesn't go down immediately
         while self.time > 0:
             time.sleep(0.1)
             self.time-=0.1
@@ -144,11 +164,11 @@ class Timer():
 def play_game():
     #lets define some global variables so things work don't @ me
     global row, col, old_row, old_col, images, lightSquareColor, darkSquareColor, lightHighlightColor, main_background_color 
-    global darkHighlightColor, moveSound, captureSound, checkSound, checkmateSound, gameStart
+    global darkHighlightColor, moveSound, captureSound, checkSound, checkmateSound
 
     main_background_color = '#312e2b'
     controls_background_color = '#272522'
-    gameStart = False
+    app_variables.game_start = False
     pgnArray = []
     moveCount = 0
 
@@ -208,11 +228,12 @@ def play_game():
         ]
     window = sg.Window('MagChess', layout, icon='knightB.ico', default_button_element_size=(12,1), resizable=True, auto_size_buttons=False, background_color = main_background_color).Finalize()
     window.Maximize()
+
     while True:
         event, values = window.read(timeout = 1)
         if event == sg.WIN_CLOSED:
             break
-        if event == 'New Game' and not gameStart:
+        if event == 'New Game' and not app_variables.game_start:
             newGameInputs = new_game() #new game popup
             ChessBoard.reset() #Reset everything
             board = copy.deepcopy(initial_board)
@@ -230,20 +251,18 @@ def play_game():
             window.refresh()
             window['movesColumn'].contents_changed()
             if newGameInputs != None:
-                Player_1_Name, Player_2_Name = newGameInputs[0], newGameInputs[1]
-                window['Player_1_Name'].update(Player_1_Name) #Updates Player Names
+                Player_1_Name, Player_2_Name, = newGameInputs[0], newGameInputs[1]
+                window['Player_1_Name'].update(Player_1_Name) 
                 window['Player_2_Name'].update(Player_2_Name)
-                gameTimeInc = newGameInputs[4]
-                gameStart = newGameInputs[5]
-                if 'Untimed' in (newGameInputs[2], newGameInputs[3]):
+                if app_variables.game_time_untimed is True:
                     window['Player1Time'].update(visible=False)
                     window['Player2Time'].update(visible=False)
                 else:
-                    window['Player1Time'].update('{:02d}:{:02d}'.format(newGameInputs[2], newGameInputs[3]), visible=True) #converts into decimal 2-unit lengths
-                    window['Player2Time'].update('{:02d}:{:02d}'.format(newGameInputs[2], newGameInputs[3]),visible=True)
+                    window['Player1Time'].update('{:02d}:{:02d}'.format(app_variables.game_time_minutes, app_variables.game_time_seconds), visible=True) #converts into decimal 2-unit lengths
+                    window['Player2Time'].update('{:02d}:{:02d}'.format(app_variables.game_time_minutes, app_variables.game_time_seconds),visible=True)
                     global Player_1_Timer, Player_2_Timer
-                    Player_1_Timer = Timer(newGameInputs[2], newGameInputs[3],gameTimeInc) #Creates timer for each player based on inputs
-                    Player_2_Timer = Timer(newGameInputs[2], newGameInputs[3],gameTimeInc)
+                    Player_1_Timer = Timer(app_variables.game_time_minutes, app_variables.game_time_seconds + 0.9, app_variables.game_time_inc) #Creates timer for each player based on inputs, delay added so doesn't start counting instantly
+                    Player_2_Timer = Timer(app_variables.game_time_minutes, app_variables.game_time_seconds + 0.9, app_variables.game_time_inc)
                     Player_1_Timer.Threading() #Starts Timer's and pauses black immediately
         if event == settings_layout[2]: #if sounds selected
             global sounds
@@ -254,7 +273,7 @@ def play_game():
                 menuMark = ''
             settings_layout[2] = f'Sounds{menuMark}' #updates to turn off/on checkmark
             menu.update(menu_layout)    #updates full menu
-            moveSound, checkSound, captureSound, checkmateSound = soundSettings(sounds) #changes sounds   
+            moveSound, checkSound, captureSound, checkmateSound = sound_settings(sounds) #changes sounds   
         if event == settings_layout[3]: #if auto queen selected
             global isAutoQueen
             isAutoQueen = not isAutoQueen
@@ -267,11 +286,9 @@ def play_game():
         if event in board_themes: 
             images,lightSquareColor, darkSquareColor, lightHighlightColor, darkHighlightColor = piece_theme(event)
             redraw_board(window, board) #redraws board with new theme from event
-        if event == 'Resign' and gameStart:
-            gameStart = False
-            Player_1_Timer.stop()
-            Player_2_Timer.stop()
-        if event == menu_layout[2][1][0] and gameStart: #if Paused or Resume button pressed
+        if event == 'Resign' and app_variables.game_start:
+            game_over("Resignation", pgn, Player_1_Name if ChessBoard.turn else Player_2_Name)
+        if event == menu_layout[2][1][0] and app_variables.game_start and not app_variables.game_time_untimed: #if Paused or Resume button pressed
             global isPaused
             isPaused = not isPaused
             if isPaused:
@@ -283,30 +300,30 @@ def play_game():
                 Player_1_Timer.resume()
                 Player_2_Timer.resume()
             menu.update(menu_layout)
-        if gameStart and 'Untimed' not in (newGameInputs[2], newGameInputs[3]):
+        if app_variables.game_start and not app_variables.game_time_untimed:
             if (moveCount % 2) == 0: 
                 time.sleep(0.01)
                 if Player_1_Timer.time < 10: #Switch to decimal when under 10s
-                    gameTimeSeconds, gameTimeDS = Player_1_Timer.time // 1, (Player_1_Timer.time % 1 * 10)
-                    window['Player1Time'].update('00:{:02n}.{:.0f}'.format(gameTimeSeconds, gameTimeDS))
+                    app_variables.game_time_seconds, gameTimeDS = Player_1_Timer.time // 1, (Player_1_Timer.time % 1 * 10)
+                    window['Player1Time'].update('00:{:02n}.{:.0f}'.format(app_variables.game_time_seconds, gameTimeDS))
                 else:
-                    gameTimeMinutes, gameTimeSeconds = divmod(int(Player_1_Timer.time), 60)
-                    window['Player1Time'].update('{:02d}:{:02d}'.format(gameTimeMinutes, gameTimeSeconds))
+                    app_variables.game_time_minutes, app_variables.game_time_seconds = divmod(int(Player_1_Timer.time), 60)
+                    window['Player1Time'].update('{:02d}:{:02d}'.format(app_variables.game_time_minutes, app_variables.game_time_seconds))
             elif (moveCount % 2) != 0:
                 time.sleep(0.01)
                 if Player_2_Timer.time < 10: #Switch to decimal when under 10s
-                    gameTimeSeconds, gameTimeDS = Player_2_Timer.time // 1, (Player_2_Timer.time % 1 * 10) #deci-seconds
-                    window['Player2Time'].update('00:{:02n}.{:.0f}'.format(gameTimeSeconds, gameTimeDS))
+                    app_variables.game_time_seconds, gameTimeDS = Player_2_Timer.time // 1, (Player_2_Timer.time % 1 * 10) #deci-seconds
+                    window['Player2Time'].update('00:{:02n}.{:.0f}'.format(app_variables.game_time_seconds, gameTimeDS))
                 else:
-                    gameTimeMinutes, gameTimeSeconds = divmod(int(Player_2_Timer.time), 60)
-                    window['Player2Time'].update('{:02d}:{:02d}'.format(gameTimeMinutes, gameTimeSeconds))
+                    app_variables.game_time_minutes, app_variables.game_time_seconds = divmod(int(Player_2_Timer.time), 60)
+                    window['Player2Time'].update('{:02d}:{:02d}'.format(app_variables.game_time_minutes, app_variables.game_time_seconds))
             if Player_1_Timer.time <= 0:
                 window['Player1Time'].update('00:00')
                 game_over('timeout', pgn, Player_2_Name)
             elif Player_2_Timer.time <= 0:
                 window['Player2Time'].update('00:00')
                 game_over('timeout', pgn, Player_1_Name)
-        if event == 'Move' and gameStart:
+        if event == 'Move' and app_variables.game_start:
             window['input'].update('')
             arduinoMove = values['input']
             try:
@@ -340,11 +357,11 @@ def play_game():
                 if move in list(ChessBoard.legal_moves):  #check for move legality
                     move_san = ChessBoard.san(move) #This is the typical algebraic notation for the move
                     moveCount += 1
-                    if (moveCount % 2) == 0 and 'Untimed' not in (newGameInputs[2], newGameInputs[3]): #Black made a move 
+                    if (moveCount % 2) == 0 and not app_variables.game_time_untimed: #Black made a move 
                         Player_2_Timer.addInc()
                         Player_1_Timer.resume() 
                         Player_2_Timer.pause()
-                    elif (moveCount % 2) != 0 and 'Untimed' not in (newGameInputs[2], newGameInputs[3]): #White made a move
+                    elif (moveCount % 2) != 0 and not app_variables.game_time_untimed: #White made a move
                         Player_1_Timer.addInc()
                         Player_2_Timer.resume()
                         Player_1_Timer.pause()
@@ -406,19 +423,33 @@ def illegal_move_popup():
     sg.popup_ok('Illegal Move',text_color='white', no_titlebar = True, background_color = '#5e687e')
 
 def game_over(condition, pgn, win_player = 0):
-    gameStart = False
-    Player_1_Timer.stop()
-    Player_2_Timer.stop()
-    if win_player != 0:
-        result = sg.popup(f'{win_player} wins by {condition}', text_color='white', no_titlebar = False, background_color = '#5e687e', custom_text=('Save and Close', 'Analyze'))
-        if result == "Analyze":
-            analyze(pgn)
+    app_variables.game_start = False
+    if app_variables.game_time_untimed is False:
+        Player_1_Timer.stop()
+        Player_2_Timer.stop()
+    if win_player != 0: #If there is a defined winner
+        layout = [
+            [sg.Text(f'{win_player} wins by {condition}', text_color='white', background_color = '#5e687e')],
+            [sg.Button('Save and Close', key='CLOSE', tooltip = 'Save file and close'), sg.Button('Analyze', tooltip = 'Opens game in lichess to analyze!')] 
+        ]
+        window = sg.Window('Game Over', layout, background_color = '#5e687e', no_titlebar=True, modal=True, finalize = True)
+        event, values = window.read()
+        while True:
+            if event == "Analyze":
+                analyze(pgn)
+                break
+            if event == 'CLOSE':
+                break
+        window.close()
         return
 
 def analyze(pgn):
-    if gameStart == False and pgn != '': #In case no moves were made
-        pyperclip.copy(pgn)
-        webbrowser.open_new_tab('https://lichess.org/analysis') #copy and open analysis link
+    if app_variables.game_start == False and pgn != '': #In case no moves were made
+        chrome_pgn_driver = webdriver.Chrome(service = app_variables.service, options = app_variables.chrome_options)
+        chrome_pgn_driver.get("https://lichess.org/analysis")
+        pgn_box = chrome_pgn_driver.find_element(By.XPATH, "//textarea[@class='copyable']")
+        pgn_box.send_keys(pgn)
+        pgn_box.send_keys(Keys.RETURN)
 
 def redraw_board(window, board):
     for i in range(8):
@@ -430,7 +461,7 @@ def redraw_board(window, board):
             elem.Update(button_color = (text_color, color),
                         image_filename=piece_image,)
     #Colors squares that have moved with diff colors for light and dark
-    if gameStart and 0 not in (old_row,old_col,row,col):
+    if app_variables.game_start and 0 not in (old_row,old_col,row,col):
         button = window[old_row, old_col]
         if (old_row + old_col) % 2:
             button.Update(button_color = darkHighlightColor)
@@ -463,26 +494,20 @@ def new_game():
             time_control_select = True
             window['customTime'].update(visible = False)
             isCustom = False
-            if values['TimeControl'] == 'Untimed':
-                gameTimeMinutes = 'Untimed'
-                gameTimeSeconds = 'Untimed'
-                gameTimeInc = 0
+            if values['TimeControl'] == 'Untimed': #min/sec are 0 by default
+                app_variables.game_time_untimed = True
             elif values['TimeControl'] == 'Classical(30|15)':
-                gameTimeMinutes = 30
-                gameTimeSeconds = 0
-                gameTimeInc = 15
+                app_variables.game_time_minutes = 30
+                app_variables.game_time_inc = 15
             elif values['TimeControl'] == 'Rapid(10|5)':
-                gameTimeMinutes = 10
-                gameTimeSeconds = 0
-                gameTimeInc = 5
+                app_variables.game_time_minutes = 10
+                app_variables.game_time_inc = 5
             elif values['TimeControl'] == 'Long Blitz(5|5)':
-                gameTimeMinutes = 5
-                gameTimeSeconds = 0
-                gameTimeInc = 5
+                app_variables.game_time_minutes = 5
+                app_variables.game_time_inc = 5
             elif values['TimeControl'] == 'Short Blitz(3|3)':
-                gameTimeMinutes = 3
-                gameTimeSeconds = 0
-                gameTimeInc = 3
+                app_variables.game_time_minutes = 3
+                app_variables.game_time_inc = 3
             elif values['TimeControl'] == 'Custom':
                 window['customTime'].update(visible = True)
                 isCustom = True
@@ -493,15 +518,15 @@ def new_game():
                 sg.Popup('Must fill fields', no_titlebar = True, background_color = '#5e687e')
                 break
             elif isCustom:
-                gameTimeMinutes = int(values['timeMin']) if values['timeMin'] != '' else 0
-                gameTimeSeconds = int(values['timeSec']) if values['timeSec'] != '' else 0
-                gameTimeInc = int(values['increment']) if values['increment'] != '' else 0
-                if gameTimeMinutes == 0 and gameTimeSeconds < 10:
+                app_variables.game_time_minutes = int(values['timeMin']) if values['timeMin'] != '' else 0
+                app_variables.game_time_seconds = int(values['timeSec']) if values['timeSec'] != '' else 0
+                app_variables.game_time_inc = int(values['increment']) if values['increment'] != '' else 0
+                if app_variables.game_time_minutes == 0 and app_variables.game_time_seconds < 10:
                     sg.Popup('Must Enter Time (at least 10s)', no_titlebar = True, background_color = '#5e687e')
                     break
             window.close()
-            gameStart = True
-            return(Player_1_Name, Player_2_Name, gameTimeMinutes, gameTimeSeconds, gameTimeInc, gameStart)
+            app_variables.game_start = True
+            return(Player_1_Name, Player_2_Name)
         if event == 'timeMin' and values['timeMin'] and values['timeMin'][-1] not in ('0123456789') or len(values['timeMin']) > 2:
             window['timeMin'].update(values['timeMin'][:-1])
         if event == 'timeSec' and values['timeSec'] and values['timeSec'][-1] not in ('0123456789') or len(values['timeSec']) > 2:
