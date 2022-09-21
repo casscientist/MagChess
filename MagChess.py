@@ -110,15 +110,16 @@ class Timer():
         self.paused = False
         self.gameTimeInc = gameTimeInc
         self.startSec, self.startMin = startSec,startMin
-        self.startTime = self.startMin*60 + self.startSec
+        self.time = self.startMin*60 + self.startSec
     def start(self):
         self.timestarted = True
-        while self.startTime > 0:
-            time.sleep(1.1) #idk seemed a little fast
-            self.startTime-=1
+        time.sleep(1) #So timer doesn't go down immediately
+        while self.time > 0:
+            time.sleep(0.1)
+            self.time-=0.1
             if self.paused == True:
                 break 
-        if self.startTime == 0:
+        if self.time == 0:
             self.stop()
     def Threading(self):
         x = threading.Thread(target=self.start)
@@ -130,9 +131,9 @@ class Timer():
         self.Threading()
     def stop(self):
         self.paused = True
-        self.startTime = 0
+        self.time = 0
     def addInc(self):
-        self.startTime+=self.gameTimeInc
+        self.time+=self.gameTimeInc
 
 def PlayGame():
     #lets define some global variables so things work don't @ me
@@ -239,7 +240,7 @@ def PlayGame():
                     Player_1_Timer.Threading() #Starts Timer's and pauses black immediately
                     Player_2_Timer.Threading()
                     Player_2_Timer.pause()
-                    Player_2_Timer.startTime+=1
+                    Player_2_Timer.time+=1
         if event == settings_layout[2]: #if sounds selected
             global sounds
             sounds = not sounds
@@ -285,15 +286,25 @@ def PlayGame():
             menu.update(menu_layout)
         if gameStart == True and 'Untimed' not in (newGameInputs[2], newGameInputs[3]):
             if (moveCount % 2) == 0:
-                gameTimeMinutes, gameTimeSeconds = divmod(Player_1_Timer.startTime, 60)
-                window['Player1Time'].update('{:02d}:{:02d}'.format(gameTimeMinutes, gameTimeSeconds))
+                if Player_1_Timer.time < 10: #Switch to decimal when under 10s
+                    gameTimeSeconds, gameTimeDS = Player_1_Timer.time // 1, (Player_1_Timer.time % 1 * 10)
+                    window['Player1Time'].update('00:{:02n}.{:.0f}'.format(gameTimeSeconds, gameTimeDS))
+                else:
+                    gameTimeMinutes, gameTimeSeconds = divmod(int(Player_1_Timer.time), 60)
+                    window['Player1Time'].update('{:02d}:{:02d}'.format(gameTimeMinutes, gameTimeSeconds))
             elif (moveCount % 2) != 0:
-                gameTimeMinutes, gameTimeSeconds = divmod(Player_2_Timer.startTime, 60)
-                window['Player2Time'].update('{:02d}:{:02d}'.format(gameTimeMinutes, gameTimeSeconds))
-            if Player_1_Timer.startTime == 0 or Player_2_Timer == 0:
-                gameStart = False
-                Player_1_Timer.stop()
-                Player_2_Timer.stop()
+                if Player_2_Timer.time < 10: #Switch to decimal when under 10s
+                    gameTimeSeconds, gameTimeDS = Player_2_Timer.time // 1, (Player_2_Timer.time % 1 * 10) #deci-seconds
+                    window['Player2Time'].update('00:{:02n}.{:.0f}'.format(gameTimeSeconds, gameTimeDS))
+                else:
+                    gameTimeMinutes, gameTimeSeconds = divmod(int(Player_2_Timer.time), 60)
+                    window['Player2Time'].update('{:02d}:{:02d}'.format(gameTimeMinutes, gameTimeSeconds))
+            if Player_1_Timer.time <= 0:
+                window['Player1Time'].update('00:00')
+                game_over('timeout', 2)
+            elif Player_2_Timer.time <= 0:
+                window['Player2Time'].update('00:00')
+                game_over('timeout',1)
         if event == 'Move' and gameStart == True:
             window['input'].update('')
             arduinoMove = values['input']
@@ -385,8 +396,13 @@ def PlayGame():
                     playsound(moveSound, block = False)
                     ChessBoard.push(move)
             else:
-                sg.popup_ok('Illegal Move',text_color='white', background_color = '#5e687e')
-            
+                sg.popup_ok('Illegal Move',text_color='white', no_titlebar = True, background_color = '#5e687e')
+
+def game_over(condition, win_player = 0):
+    gameStart = False
+    Player_1_Timer.stop()
+    Player_2_Timer.stop()
+
 def redraw_board(window, board):
     for i in range(8):
         for j in range(8):
@@ -467,8 +483,8 @@ def newGame():
                 gameTimeMinutes = int(values['timeMin']) if values['timeMin'] != '' else 0
                 gameTimeSeconds = int(values['timeSec']) if values['timeSec'] != '' else 0
                 gameTimeInc = int(values['increment']) if values['increment'] != '' else 0
-            if Player_1_Name == '' or Player_2_Name == '' or (isCustom == True and (gameTimeMinutes == 0 or gameTimeSeconds == 0)):
-                sg.Popup('Must fill fields', background_color = '#5e687e')
+            if Player_1_Name == '' or Player_2_Name == '' or (isCustom == True and (gameTimeMinutes == 0 and gameTimeSeconds == 0)):
+                sg.Popup('Must fill fields', no_titlebar = True, background_color = '#5e687e')
             else:
                 window.close()
                 gameStart = True
