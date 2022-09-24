@@ -26,7 +26,6 @@ ROOKW = 10
 KINGW = 11
 QUEENW = 12
 
-
 class AppVariables(): #For app wide variables and settings and other setup
     def __init__(self):
         self.game_start = False
@@ -47,6 +46,7 @@ class AppVariables(): #For app wide variables and settings and other setup
         self.game_time_untimed = False
 
     def board_variables(self):
+        self.board = []
         self.pgn_array = []
         self.pgn = ''
         self.move_count = 0
@@ -183,7 +183,7 @@ def play_game():
     menu_layout = [
     ['File', ['New Game', 'Play Computer']],
     ['Settings', settings_layout],
-    ['Controls', ['Pause', 'Resign']]
+    ['Controls', ['Pause', 'Abort']]
     ]
 
     menu = sg.Menu(menu_layout, background_color = 'white')
@@ -199,10 +199,10 @@ def play_game():
 
     ]
 
-    board = copy.deepcopy(initial_board)
+    app_variables.board = copy.deepcopy(initial_board)
 
-    for i in range(8):
-            cur_row = []
+    for i in range(8): #Creates array of buttons with labels, piece images
+            cur_row = [] 
             for j in range(8):
                 piece_image = app_variables.images[initial_board[i][j]]
                 if j == 0 and i == 7:
@@ -222,18 +222,20 @@ def play_game():
         [menu],
         [sg.Column(board_layout), sg.Column(controls, pad = (0,0), key ='controls', size = (150,310), background_color = app_variables.main_background_color,justification = 'center')],
         [sg.Input('', key = 'input', expand_x = True, background_color = app_variables.light_square_color, text_color = 'black')],
-        [sg.Button('Move')]
+        [sg.Button('Move', key = 'MOVE')]
         ]
     window = sg.Window('MagChess', layout, icon='knightB.ico', default_button_element_size=(12,1), resizable=True, auto_size_buttons=False, background_color = app_variables.main_background_color).Finalize()
     window.Maximize()
-
     while True:
         event, values = window.read(timeout = 1)
         if event == sg.WIN_CLOSED:
             break
+
         if event == 'New Game' and not app_variables.game_start:
             newGameInputs = new_game() #new game popup
             reset_board(window) #Reset game
+            menu_layout[2][1][1] = 'Abort' #Reset text to abort
+            menu.update(menu_layout)
             if newGameInputs != None:
                 Player_1_Name, Player_2_Name, = newGameInputs[0], newGameInputs[1]
                 window['Player_1_Name'].update(Player_1_Name) 
@@ -248,6 +250,7 @@ def play_game():
                     Player_1_Timer = Timer(app_variables.game_time_minutes, app_variables.game_time_seconds + 0.9, app_variables.game_time_inc) #Creates timer for each player based on inputs, delay added so doesn't start counting instantly
                     Player_2_Timer = Timer(app_variables.game_time_minutes, app_variables.game_time_seconds + 0.9, app_variables.game_time_inc)
                     Player_1_Timer.Threading() #Starts Timer's and pauses black immediately
+
         if event == settings_layout[2]: #if sounds selected
             global sounds
             sounds = not sounds
@@ -258,6 +261,7 @@ def play_game():
             settings_layout[2] = f'Sounds{menuMark}' #updates to turn off/on checkmark
             menu.update(menu_layout)    #updates full menu
             app_variables.move_sound, app_variables.check_sound, app_variables.capture_sound, app_variables.checkmate_sound = app_variables.sound_settings(sounds) #changes sounds   
+        
         if event == settings_layout[3]: #if auto queen selected
             global isAutoQueen
             isAutoQueen = not isAutoQueen
@@ -267,11 +271,17 @@ def play_game():
                 menuMark = ''
             settings_layout[3] = f'Auto Queen{menuMark}' #updates to turn off/on checkmark
             menu.update(menu_layout)    #updates full menu
+        
         if event in board_themes: 
             app_variables.images,app_variables.light_square_color,app_variables.light_highlight_color,app_variables.dark_square_color,app_variables.dark_highlight_color = app_variables.piece_theme(event)
-            redraw_board(window, board) #redraws board with new theme from event
-        if event == 'Resign' and app_variables.game_start:
-            game_over("Resignation", app_variables.pgn, Player_1_Name if ChessBoard.turn else Player_2_Name)
+            redraw_board(window) #redraws board with new theme from event
+        
+        if event == menu_layout[2][1][1] and app_variables.game_start: #abort/resign pressed
+            if app_variables.move_count > 1:
+                game_over(window, "Resignation", Player_2_Name if ChessBoard.turn else Player_1_Name)
+            else:
+                game_over(window, 'Abort')
+
         if event == menu_layout[2][1][0] and app_variables.game_start and not app_variables.game_time_untimed: #if Paused or Resume button pressed
             global isPaused
             isPaused = not isPaused
@@ -284,7 +294,8 @@ def play_game():
                 Player_1_Timer.resume()
                 Player_2_Timer.resume()
             menu.update(menu_layout)
-        if app_variables.game_start and not app_variables.game_time_untimed:
+        
+        if app_variables.game_start and not app_variables.game_time_untimed: #controls timers
             if (app_variables.move_count % 2) == 0: 
                 time.sleep(0.01)
                 if Player_1_Timer.time < 10: #Switch to decimal when under 10s
@@ -301,25 +312,29 @@ def play_game():
                 else:
                     app_variables.game_time_minutes, app_variables.game_time_seconds = divmod(int(Player_2_Timer.time), 60)
                     window['Player2Time'].update('{:02d}:{:02d}'.format(app_variables.game_time_minutes, app_variables.game_time_seconds))
-            if Player_1_Timer.time <= 0:
+            if Player_1_Timer.time <= 0: #timeout detecion
                 window['Player1Time'].update('00:00')
-                game_over('timeout', app_variables.pgn, Player_2_Name)
+                game_over(window, 'timeout', Player_2_Name)
             elif Player_2_Timer.time <= 0:
                 window['Player2Time'].update('00:00')
-                game_over('timeout', app_variables.pgn, Player_1_Name)
-        if event == 'Move' and app_variables.game_start:
+                game_over(window, 'timeout', Player_1_Name)
+        
+        if event == 'MOVE' and app_variables.game_start:
             window['input'].update('')
             arduinoMove = values['input']
-            try:
+
+            try: #Handles illegal moves
                 srtSq = chess.parse_square(arduinoMove[0:2])
                 endSq = chess.parse_square(arduinoMove[2:4])
-            except ValueError:
+            except ValueError: 
                 illegal_move_popup()
+
             else:   
                 move = chess.Move.from_uci(arduinoMove)
                 app_variables.row, app_variables.col = 7 - srtSq // 8, srtSq % 8 #board is flipped so 7 - srtSq
-                piece = board[app_variables.row][app_variables.col] 
+                piece = app_variables.board[app_variables.row][app_variables.col] 
                 didPromote = [False,None]  #promotion variable
+
                 if piece == PAWNB and app_variables.row == 6: #if black pawn promotes
                         if isAutoQueen:
                             move = chess.Move.from_uci(f'{move}q')
@@ -329,6 +344,7 @@ def play_game():
                             move = chess.Move.from_uci(f'{move}{promotedPiece}')
                             promotedPieceConversion = {'q':QUEENB, 'r':ROOKB, 'b':BISHOPB, 'n':KNIGHTB}
                             didPromote = [True,promotedPieceConversion[promotedPiece]]
+
                 if piece == PAWNW and app_variables.row == 1: #if white pawn promotes
                         if isAutoQueen:
                             move = chess.Move.from_uci(f'{move}q')
@@ -338,9 +354,11 @@ def play_game():
                             move = chess.Move.from_uci(f'{move}{promotedPiece}')
                             promotedPieceConversion = {'q':QUEENW, 'r':ROOKW, 'b':BISHOPW, 'n':KNIGHTW}
                             didPromote = [True,promotedPieceConversion[promotedPiece]]
+
                 if move in list(ChessBoard.legal_moves):  #check for move legality
                     move_san = ChessBoard.san(move) #This is the typical algebraic notation for the move
                     app_variables.move_count += 1
+
                     if (app_variables.move_count % 2) == 0 and not app_variables.game_time_untimed: #Black made a move 
                         Player_2_Timer.addInc()
                         Player_1_Timer.resume() 
@@ -350,34 +368,42 @@ def play_game():
                         Player_2_Timer.resume()
                         Player_1_Timer.pause()
                         app_variables.pgn_array.append(f'{(app_variables.move_count // 2) + 1}.') #adds move number
+
                     app_variables.pgn_array.append(move_san) #Adds move to app_variables.pgn array
                     app_variables.pgn = ' '.join(app_variables.pgn_array) #converts pgn to string for copy/paste
-                    board[app_variables.row][app_variables.col] = BLANK
+                    app_variables.board[app_variables.row][app_variables.col] = BLANK
                     app_variables.old_row, app_variables.old_col = app_variables.row, app_variables.col  #Now changes new square
                     app_variables.row, app_variables.col = 7 - endSq // 8, endSq % 8
+
                     if didPromote[0]: #If a piece promotes, put the promoted piece on the board
-                        board[app_variables.row][app_variables.col] = didPromote[1]
+                        app_variables.board[app_variables.row][app_variables.col] = didPromote[1]
                     else:    
-                        board[app_variables.row][app_variables.col] = piece
+                        app_variables.board[app_variables.row][app_variables.col] = piece
+
                     if ChessBoard.is_castling: #Castling check
                         if piece == KINGB and move == chess.Move.from_uci('e8g8'): #Black kingside castle
-                            board[app_variables.row][7] = BLANK
-                            board[app_variables.row][5] = ROOKB
+                            app_variables.board[app_variables.row][7] = BLANK
+                            app_variables.board[app_variables.row][5] = ROOKB
                         elif piece == KINGB and move == chess.Move.from_uci('e8c8'): #Black queenside castle
-                            board[app_variables.row][0] = BLANK
-                            board[app_variables.row][3] = ROOKB
+                            app_variables.board[app_variables.row][0] = BLANK
+                            app_variables.board[app_variables.row][3] = ROOKB
                         elif piece == KINGW and move == chess.Move.from_uci('e1c1'): #White queenside castle
-                            board[app_variables.row][0] = BLANK
-                            board[app_variables.row][3] = ROOKW
+                            app_variables.board[app_variables.row][0] = BLANK
+                            app_variables.board[app_variables.row][3] = ROOKW
                         elif piece == KINGW and move == chess.Move.from_uci('e1g1'): #White kingside castle
-                            board[app_variables.row][7] = BLANK
-                            board[app_variables.row][5] = ROOKW
+                            app_variables.board[app_variables.row][7] = BLANK
+                            app_variables.board[app_variables.row][5] = ROOKW
+
                     if ChessBoard.is_en_passant(move): #Holy Hell!
                         if piece == PAWNW:
-                            board[app_variables.row+1][app_variables.col] = BLANK
+                            app_variables.board[app_variables.row+1][app_variables.col] = BLANK
                         elif piece == PAWNB:
-                            board[app_variables.row-1][app_variables.col] = BLANK
-                    redraw_board(window, board) #Updates the board
+                            app_variables.board[app_variables.row-1][app_variables.col] = BLANK
+                    redraw_board(window) #Updates the board
+
+                    if app_variables.move_count > 1: #Abort game if before move 2, resign henceforth
+                        menu_layout[2][1][1] = 'Resign'
+                        menu.update(menu_layout)
                     if (app_variables.move_count % 2) != 0: #Adds next line if odd numbered moveCount
                         window.extend_layout(window['movesColumn'], update_move_list(move_san))
                         window.refresh()
@@ -386,12 +412,13 @@ def play_game():
                         window[f'{math.ceil(app_variables.move_count / 2)}-move2'].update(move_san)
                         window.refresh()
                         window['movesColumn'].contents_changed() #Updates scroll area size to account for new element
+
                     #Updates the move list
                     if ChessBoard.gives_check(move): 
                         ChessBoard.push(move) #has to push move first otherwise can't tell if checkmate
                         if ChessBoard.is_checkmate():
                             playsound(app_variables.checkmate_sound, block = False)
-                            game_over("Checkmate", app_variables.pgn, Player_2_Name if ChessBoard.turn else Player_1_Name)
+                            game_over(window, "Checkmate", Player_2_Name if ChessBoard.turn else Player_1_Name)
                         else:
                             playsound(app_variables.check_sound, block = False)
                     elif ChessBoard.is_capture(move):
@@ -406,25 +433,36 @@ def play_game():
 def illegal_move_popup():
     sg.popup_ok('Illegal Move',text_color='white', no_titlebar = True, background_color = '#5e687e')
 
-def game_over(condition, win_player = 0):
+def game_over(window, condition, win_player = 0):
     app_variables.game_start = False
     if app_variables.game_time_untimed is False:
         Player_1_Timer.stop()
         Player_2_Timer.stop()
-    if win_player != 0: #If there is a defined winner
+    if win_player == 0:
+        if condition == 'Abort':
+            sg.popup_ok('Game Aborted')
+            reset_board(window)
+            return
+        elif condition == 'Draw':
+            pass
+    elif win_player != 0: #If there is a defined winner
         layout = [
             [sg.Text(f'{win_player} wins by {condition}', text_color='white', background_color = '#5e687e')],
-            [sg.Button('Save and Close', key='CLOSE', tooltip = 'Save file and close'), sg.Button('Analyze', tooltip = 'Opens game in lichess to analyze!')] 
+            [sg.Button('Save and Close', key='S&CLOSE', tooltip = 'Save file and close'), 
+            sg.Button('Analyze', tooltip = 'Opens game in lichess to analyze!'), sg.Button('Close', key='CLOSE', tooltip = 'Close without saving')] 
         ]
-        window = sg.Window('Game Over', layout, background_color = '#5e687e', no_titlebar=True, modal=True, finalize = True)
-        event, values = window.read()
+        game_over_window = sg.Window('Game Over', layout, background_color = '#5e687e', no_titlebar=True, modal=True, finalize = True)
+        event, values = game_over_window.read()
         while True:
             if event == "Analyze":
                 analyze()
                 break
+            if event == 'S&CLOSE':
+                break
             if event == 'CLOSE':
                 break
-        window.close()
+        reset_board(window)
+        game_over_window.close()
         return
 
 def analyze():
@@ -435,12 +473,12 @@ def analyze():
         pgn_box.send_keys(app_variables.pgn)
         pgn_box.send_keys(Keys.RETURN)
 
-def redraw_board(window, board):
+def redraw_board(window):
     for i in range(8):
         for j in range(8):
             color = app_variables.dark_square_color if (i+j) % 2 else app_variables.light_square_color
             text_color = app_variables.light_square_color if (i+j) % 2 else app_variables.dark_square_color
-            piece_image = app_variables.images[board[i][j]]
+            piece_image = app_variables.images[app_variables.board[i][j]]
             elem = window[(i,j)]
             elem.Update(button_color = (text_color, color),
                         image_filename=piece_image,)
@@ -459,9 +497,9 @@ def redraw_board(window, board):
 
 def reset_board(window):
     ChessBoard.reset() #Reset everything
-    board = copy.deepcopy(initial_board)
+    app_variables.board = copy.deepcopy(initial_board)
     app_variables.old_row, app_variables.old_col, app_variables.row, app_variables.col = 0,0,0,0
-    redraw_board(window, board)
+    redraw_board(window)
     app_variables.pgn_array = []
     app_variables.pgn = ''
     app_variables.moves_column = []
@@ -470,6 +508,10 @@ def reset_board(window):
             window[f'{math.ceil(i/2)}-moveNum'].update('', background_color=app_variables.controls_background_color)
             window[f'{math.ceil(i/2)}-move1'].update('', background_color=app_variables.controls_background_color)
             window[f'{math.ceil(i/2)}-move2'].update('', background_color=app_variables.controls_background_color)
+    window['Player_1_Name'].update('Player 1') 
+    window['Player_2_Name'].update('Player 2')
+    window['Player1Time'].update('60:00') 
+    window['Player2Time'].update('60:00')
     app_variables.move_count = 0
     window.refresh()
     window['movesColumn'].contents_changed()
