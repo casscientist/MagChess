@@ -18,7 +18,6 @@ This is a personal project:
 - Add arduino script for calculating moves
 ## Packages
 - chess
-- PySimpleGUI
+- Ppysimplegui
 - playsound
-- pyperclip
-- webbrowser
+- selenium
